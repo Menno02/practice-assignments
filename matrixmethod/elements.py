@@ -153,13 +153,14 @@ class Element:
 
         l = self.L
         self.q = np.array(q)
+        qx, qz = self.q
 
-        self.local_element_load # =[YOUR CODE HERE, , , , , ]
+        self.local_element_load = [qx * l / 2, qz * l / 2, -qz * l**2 / 12, qx * l / 2, qz * l /2, qz * l**2 / 12]
 
-        global_element_load #YOUR CODE HERE
+        global_element_load = self.Tt @ self.local_element_load
 
-        self.nodes[0].add_load #YOUR CODE HERE
-        self.nodes[1].add_load #YOUR CODE HERE
+        self.nodes[0].add_load(global_element_load[0:3])
+        self.nodes[1].add_load(global_element_load[3:6])
 
     def bending_moments(self, u_global, num_points=2):
         """
@@ -179,10 +180,16 @@ class Element:
 
         local_x = np.linspace(0.0, l, num_points)
 
-        local_disp #YOUR CODE HERE
+        local_disp = self.T @ u_global
 
-        M #YOUR CODE HERE
-        
+        u1, w1, phi1, u2, w2, phi2 = local_disp
+        self.C1 = w1
+        self.C2 = -phi1
+        self.C3 = (48 * EI * l * phi1 + 24 * EI * l * phi2 - 72 * EI * w1 + 72 * EI * w2 + l**4 * q) / (24 * EI * l**2)
+        self.C4 = (-12 * EI * l * phi1 - 12 * EI * l * phi2 + 24 * EI * w1 - 24 * EI * w2 - l**4 * q) / (12 * EI * l**3)
+        self.w = (self.C1 + self.C2 * local_x + self.C3 * local_x**2 + self.C4 * local_x**3 + q * local_x**4 / (24 * EI))
+        M = -EI * (2 * self.C3 + 6 * self.C4 * local_x + q * local_x**2 / (2 * EI))
+
         return M
     
     def full_displacement (self, u_global, num_points=2):
@@ -196,10 +203,16 @@ class Element:
         Returns:
             numpy.ndarray: Array of displacement along the element.
         """
-        #YOUR CODE HERE
+        self.bending_moments(u_global, num_points)
 
-        u #YOUR CODE HERE
-        w #YOUR CODE HERE
+        l = self.L
+        EA = self.EA
+        local_x = np.linspace(0.0, l, num_points)
+        local_disp = self.T @ u_global
+
+        u1, w1, phi1, u2, w2, phi2 = local_disp
+        u = self.q[0] * (-l * local_x / (2 * EA) + local_x**2 / (2 * EA)) + u1 * (1 - local_x / l) + u2 * local_x / l
+        w = self.w
 
         return u, w
     
